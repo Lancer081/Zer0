@@ -2,6 +2,7 @@
 
 #include <map>
 #include <stdint.h>
+#include "movegen.h"
 
 #define SQ_NUM 64
 #define BRD_SIZE 8
@@ -46,4 +47,15 @@ public:
 	
 	void print();
 	void parseFen(char *fen);
+	
+	uint64_t getOcc(int side);
+	uint64_t getBb(int piece);
+	
+	int getSide();
+	int getCastling();
+	int getEnpassant();
+	
+	bool isSqAttacked(MoveGenerator *movegen, int square, int side);
 };
+
+void printBitboard(uint64_t bitboard);

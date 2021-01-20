@@ -240,6 +240,333 @@ void MoveGenerator::initSliderAttacks()
 	}
 }
 
+void MoveGenerator::addMove(MoveList *moves, int move)
+{
+	moves->moves[moves->count++] = move;
+}
+
+void MoveGenerator::generateMoves(Position *pos, MoveList *moves)
+{
+	int fromSquare, toSquare;
+
+	uint64_t bitboard, attacks;
+
+	moves->count = 0;
+
+	for (int piece = P; piece <= k; piece++)
+	{
+		bitboard = pos->getBb(piece);
+
+		if (pos->getSide() == white)
+		{
+			if (piece == P)
+			{
+				while (bitboard)
+				{
+					fromSquare = getLSBIndex(bitboard);
+					toSquare = fromSquare - 8;
+
+					// generate quiet pawn moves
+					if (!getBit(pos->getOcc(both), toSquare))
+					{
+						// promotion
+						if (fromSquare >= a7 && fromSquare <= h7)
+						{
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, Q, 0, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, R, 0, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, B, 0, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, N, 0, 0, 0, 0));
+						}
+						else
+						{
+							// single pawn push
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 0, 0, 0, 0));
+
+							// double pawn push
+							if ((fromSquare >= a2 && fromSquare <= h2) && !getBit(pos->getOcc(both), toSquare - 8))
+								addMove(moves, encodeMove(fromSquare, toSquare - 8, piece, 0, 0, 1, 0, 0));
+						}
+					}
+
+					attacks = pawnAttacks[white][fromSquare] & pos->getOcc(black);
+
+					// generate pawn captures
+					while (attacks)
+					{
+						toSquare = getLSBIndex(attacks);
+
+						if (fromSquare >= a7 && fromSquare <= h7)
+						{
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, Q, 1, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, R, 1, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, B, 1, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, N, 1, 0, 0, 0));
+						}
+						else
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 1, 0, 0, 0));
+
+						popBit(attacks, toSquare);
+					}
+
+					// generate enpassant captures
+					if (pos->getEnpassant() != noSq)
+					{
+						uint64_t enpassant_attacks = pawnAttacks[white][fromSquare] & (1ULL << pos->getEnpassant());
+
+						if (enpassant_attacks)
+						{
+							int target_enpassant = getLSBIndex(enpassant_attacks);
+							addMove(moves, encodeMove(fromSquare, target_enpassant, piece, 0, 1, 0, 1, 0));
+						}
+					}
+
+					popBit(bitboard, fromSquare);
+				}
+			}
+			else if (piece == K)
+			{
+				if (pos->getCastling() & wk)
+				{
+					if (!getBit(pos->getOcc(both), f1) && !getBit(pos->getOcc(both), g1))
+					{
+						if (!pos->isSqAttacked(this, e1, black) && !pos->isSqAttacked(this, f1, black))
+							addMove(moves, encodeMove(e1, g1, piece, 0, 0, 0, 0, 1));
+					}
+				}
+				if (pos->getCastling() & wq)
+				{
+					if (!getBit(pos->getOcc(both), d1) && !getBit(pos->getOcc(both), c1) && !getBit(pos->getOcc(both), b1))
+					{
+						if (!pos->isSqAttacked(this, e1, black) && !pos->isSqAttacked(this, d1, black))
+							addMove(moves, encodeMove(e1, c1, piece, 0, 0, 0, 0, 1));
+					}
+				}
+			}
+		}
+		else
+		{
+			if (piece == p)
+			{
+				while (bitboard)
+				{
+					fromSquare = getLSBIndex(bitboard);
+					toSquare = fromSquare + 8;
+
+
+					// generate quiet pawn moves
+					if (!getBit(pos->getOcc(both), toSquare))
+					{
+						if (fromSquare >= a2 && fromSquare <= h2)
+						{
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, q, 0, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, r, 0, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, b, 0, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, n, 0, 0, 0, 0));
+						}
+						else
+						{
+							// generate single pawn pushes
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 0, 0, 0, 0));
+
+							// generate double pawn pushes
+							if ((fromSquare >= a7 && fromSquare <= h7) && !getBit(pos->getOcc(both), toSquare + 8))
+								addMove(moves, encodeMove(fromSquare, toSquare + 8, piece, 0, 0, 1, 0, 0));
+						}
+					}
+
+					attacks = pawnAttacks[black][fromSquare] & pos->getOcc(white);
+
+					// generate pawn captures
+					while (attacks)
+					{
+						toSquare = getLSBIndex(attacks);
+
+						if (fromSquare >= a2 && fromSquare <= h2)
+						{
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, q, 1, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, r, 1, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, b, 1, 0, 0, 0));
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, n, 1, 0, 0, 0));
+						}
+						else
+							addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 1, 0, 0, 0));
+
+						popBit(attacks, toSquare);
+					}
+
+					// generate enpassant captures
+					if (pos->getEnpassant() != noSq)
+					{
+						uint64_t enpassant_attacks = pawnAttacks[black][fromSquare] & (1ULL << pos->getEnpassant());
+
+						if (enpassant_attacks)
+						{
+							int target_enpassant = getLSBIndex(enpassant_attacks);
+							addMove(moves, encodeMove(fromSquare, target_enpassant, piece, 0, 1, 0, 1, 0));
+						}
+					}
+
+					popBit(bitboard, fromSquare);
+				}
+			}
+			else if (piece == k)
+			{
+				if (pos->getCastling() & bk)
+				{
+					if (!getBit(pos->getOcc(both), f8) && !getBit(pos->getOcc(both), g8))
+					{
+						if (!pos->isSqAttacked(this, e8, white) && !pos->isSqAttacked(this, f8, white))
+							addMove(moves, encodeMove(e8, g8, piece, 0, 0, 0, 0, 1));
+					}
+				}
+				if (pos->getCastling() & bq)
+				{
+					if (!getBit(pos->getOcc(both), d8) && !getBit(pos->getOcc(both), c8) && !getBit(pos->getOcc(both), b8))
+					{
+						if (!pos->isSqAttacked(this, e8, white) && !pos->isSqAttacked(this, d8, white))
+							addMove(moves, encodeMove(e8, c8, piece, 0, 0, 0, 0, 1));
+					}
+				}
+			}
+		}
+
+		// generate knight moves
+		if ((pos->getSide() == white) ? piece == N : piece == n)
+		{
+			while (bitboard)
+			{
+				fromSquare = getLSBIndex(bitboard);
+
+				attacks = knightAttacks[fromSquare] & ((pos->getSide() == white) ? ~pos->getOcc(white) : ~pos->getOcc(black));
+
+				while (attacks)
+				{
+					toSquare = getLSBIndex(attacks);
+
+					// quiet moves
+					if (!getBit(((pos->getSide() == white) ? pos->getOcc(black) : pos->getOcc(white)), toSquare))
+						addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 0, 0, 0, 0));
+					// capture moves
+					else
+						addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 1, 0, 0, 0));
+
+					popBit(attacks, toSquare);
+				}
+
+				popBit(bitboard, fromSquare);
+			}
+		}
+
+		// generate bishop moves
+		if ((pos->getSide() == white) ? piece == B : piece == b)
+		{
+			while (bitboard)
+			{
+				fromSquare = getLSBIndex(bitboard);
+
+				attacks = getBishopAttacks(fromSquare, pos->getOcc(both)) & ((pos->getSide() == white) ? ~pos->getOcc(white) : ~pos->getOcc(black));
+
+				while (attacks)
+				{
+					toSquare = getLSBIndex(attacks);
+
+					// quiet moves
+					if (!getBit(((pos->getSide() == white) ? pos->getOcc(black) : pos->getOcc(white)), toSquare))
+						addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 0, 0, 0, 0));
+					// capture moves
+					else
+						addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 1, 0, 0, 0));
+
+					popBit(attacks, toSquare);
+				}
+
+				popBit(bitboard, fromSquare);
+			}
+		}
+
+		// generate rook moves
+		if ((pos->getSide() == white) ? piece == R : piece == r)
+		{
+			while (bitboard)
+			{
+				fromSquare = getLSBIndex(bitboard);
+
+				attacks = getRookAttacks(fromSquare, pos->getOcc(both)) & ((pos->getSide() == white) ? ~pos->getOcc(white) : ~pos->getOcc(black));
+
+				while (attacks)
+				{
+					toSquare = getLSBIndex(attacks);
+
+					// quiet moves
+					if (!getBit(((pos->getSide() == white) ? pos->getOcc(black) : pos->getOcc(white)), toSquare))
+						addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 0, 0, 0, 0));
+					// capture moves
+					else
+						addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 1, 0, 0, 0));
+
+					popBit(attacks, toSquare);
+				}
+
+				popBit(bitboard, fromSquare);
+			}
+		}
+
+		// generate queen moves
+		if ((pos->getSide() == white) ? piece == Q : piece == q)
+		{
+			while (bitboard)
+			{
+				fromSquare = getLSBIndex(bitboard);
+
+				attacks = getQueenAttacks(fromSquare, pos->getOcc(both)) & ((pos->getSide() == white) ? ~pos->getOcc(white) : pos->getOcc(black));
+
+				while (attacks)
+				{
+					toSquare = getLSBIndex(attacks);
+
+					// quiet moves
+					if (!getBit(((pos->getSide() == white) ? pos->getOcc(black) : pos->getOcc(white)), toSquare))
+						addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 0, 0, 0, 0));
+					// capture moves
+					else
+						addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 1, 0, 0, 0));
+
+					popBit(attacks, toSquare);
+				}
+
+				popBit(bitboard, fromSquare);
+			}
+		}
+
+		// generate king moves
+		if ((pos->getSide() == white) ? piece == K : piece == k)
+		{
+			while (bitboard)
+			{
+				fromSquare = getLSBIndex(bitboard);
+
+				attacks = kingAttacks[fromSquare] & ((pos->getSide() == white) ? ~pos->getOcc(white) : ~pos->getOcc(black));
+
+				while (attacks)
+				{
+					toSquare = getLSBIndex(attacks);
+
+					// quiet moves
+					if (!getBit(((pos->getSide() == white) ? pos->getOcc(black) : pos->getOcc(white)), toSquare))
+						addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 0, 0, 0, 0));
+					// capture moves
+					else
+						addMove(moves, encodeMove(fromSquare, toSquare, piece, 0, 1, 0, 0, 0));
+
+					popBit(attacks, toSquare);
+				}
+
+				popBit(bitboard, fromSquare);
+			}
+		}
+	}
+}
+
 uint64_t MoveGenerator::setOccupancy(int index, int bitsInMask, uint64_t attackMask)
 {
 	uint64_t occupancy = 0ULL;
@@ -419,7 +746,7 @@ uint64_t MoveGenerator::rookAttacksOTF(int square, uint64_t blockers)
 	return attacks;
 }
 
-inline uint64_t MoveGenerator::getRookAttacks(int sqr, uint64_t occupancy)
+uint64_t MoveGenerator::getRookAttacks(int sqr, uint64_t occupancy)
 {
 	occupancy &= rookMasks[sqr];
 	occupancy *= rookMagicNumbers[sqr];
@@ -428,7 +755,7 @@ inline uint64_t MoveGenerator::getRookAttacks(int sqr, uint64_t occupancy)
 	return rookAttacks[sqr][occupancy];
 }
 
-inline uint64_t MoveGenerator::getBishopAttacks(int sqr, uint64_t occupancy)
+uint64_t MoveGenerator::getBishopAttacks(int sqr, uint64_t occupancy)
 {
 	occupancy &= bishopMasks[sqr];
 	occupancy *= bishopMagicNumbers[sqr];
@@ -437,7 +764,7 @@ inline uint64_t MoveGenerator::getBishopAttacks(int sqr, uint64_t occupancy)
 	return bishopAttacks[sqr][occupancy];
 }
 
-inline uint64_t MoveGenerator::getQueenAttacks(int sqr, uint64_t occupancy) 
+uint64_t MoveGenerator::getQueenAttacks(int sqr, uint64_t occupancy) 
 { 
 	return getBishopAttacks(sqr, occupancy) | getRookAttacks(sqr, occupancy); 
 }

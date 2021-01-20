@@ -1,5 +1,9 @@
-#include "board.h"
+#include <iostream>
 #include <string.h>
+#include "board.h"
+#include "movegen.h"
+
+using namespace std;
 
 map<int, char> pieceToChar = {
     {P, 'P'},
@@ -41,6 +45,13 @@ Position::Position()
 	memset(occ, 0ULL, sizeof(occ));
 }
 
+int Position::getSide() { return side; }
+int Position::getCastling() { return castling; }
+int Position::getEnpassant() { return enpassant; }
+
+uint64_t Position::getOcc(int side) { return occ[side]; }
+uint64_t Position::getBb(int piece) { return board[piece]; }
+
 void Position::print()
 {
 	for (int sq = 0; sq < SQ_NUM; sq++)
@@ -48,23 +59,23 @@ void Position::print()
 		int noPiece = 1;
 	
 		if (!(sq % BRD_SIZE))
-			printf("\n%d ", 8 - (sq / BRD_SIZE));
+			cout << "\n%d " << 8 - (sq / BRD_SIZE);
 			
 		for (int piece = P; piece <= k; piece++)
 		{
 			if (getBit(board[piece], sq))
 			{
-				printf("%c ", pieceToChar[piece]);
+				cout << "%c " << pieceToChar[piece];
 				noPiece = 0;
 				break;
 			}
 		}
 		
 		if (noPiece)
-			printf(". ");
+			cout << ". ";
 	}
 	
-	printf("\n  a b c d e f g h\n\n");
+	cout << "\n  a b c d e f g h\n\n";
 }
 
 void Position::parseFen(char *fen)
@@ -160,4 +171,30 @@ void Position::parseFen(char *fen)
 	occ[both] = occ[white] | occ[black];
 
 	//hashKey = generate_hash_key();
+}
+
+bool Position::isSqAttacked(MoveGenerator *movegen, int square, int side)
+{
+	if (side == white && (movegen->getPawnAttacks(black, square) & board[P])) return true;
+	if (side == black && (movegen->getPawnAttacks(white, square) & board[p])) return true;
+	if (movegen->getKnightAttacks(square) & (side == white ? board[N] : board[n])) return true;
+	if (movegen->getKingAttacks(square) & (side == white ? board[K] : board[k])) return true;
+	if (movegen->getBishopAttacks(square, occ[both]) & (side == white ? board[B] : board[b])) return true;
+	if (movegen->getRookAttacks(square, occ[both]) & (side == white ? board[R] : board[r])) return true;
+	if (movegen->getQueenAttacks(square, occ[both]) & (side == white ? board[Q] : board[q])) return true;
+
+	return false;
+}
+
+void printBitboard(uint64_t bb)
+{
+	for (int sq = 0; sq < SQ_NUM; sq++)
+	{
+		if (!(sq % BRD_SIZE))
+			cout << endl << BRD_SIZE - (sq / BRD_SIZE) << " ";
+			
+		cout << (getBit(bb, sq) ? 1 : 0) << " ";
+	}
+	
+	cout << endl << "  a b c d e f g h" << endl << endl;
 }
